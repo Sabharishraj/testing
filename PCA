@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrated Purchase Inference (iPI)</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <!-- Inter Font -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .card { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); }
+        .btn-primary { transition: background-color 0.2s; }
+        .btn-primary:hover { background-color: #1e40af; }
+    </style>
+</head>
+<body>
+
+<div id="app" class="min-h-screen p-4 sm:p-8">
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-blue-800">iPI: Integrated Purchase Inference</h1>
+        <p class="text-gray-600 mt-2">Personal Expense Tracker & AI Cost Saver</p>
+        <p class="text-xs text-gray-400 mt-1">User ID: <span id="user-id">Loading...</span></p>
+    </header>
+
+    <div class="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- 1. Expense Input Form -->
+        <div class="lg:col-span-1 bg-white p-6 rounded-xl card h-fit">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-700">Add Transaction</h2>
+            <form id="expense-form" class="space-y-4">
+                <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700">Amount (INR)</label>
+                    <input type="number" id="amount" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
+                    <select id="category" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Category</option>
+                        <option value="Groceries">Groceries</option>
+                        <option value="Food & Dining">Food & Dining</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                    <input type="text" id="description" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 btn-primary">
+                    Add Expense
+                </button>
+                <div id="message-box" class="hidden text-sm p-2 rounded-md"></div>
+            </form>
+        </div>
+
+        <!-- 2. Data Visualization and Analytics -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Summary Card -->
+            <div class="bg-blue-100 p-6 rounded-xl card flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-medium text-blue-800">Total Monthly Spending:</h3>
+                    <p id="total-spending" class="text-3xl font-bold text-blue-900 mt-1">₹ 0.00</p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-medium text-green-700">Potential Savings:</h3>
+                    <p id="total-savings" class="text-3xl font-bold text-green-900 mt-1">₹ 0.00</p>
+                </div>
+            </div>
+
+            <!-- Chart Canvas -->
+            <div class="bg-white p-6 rounded-xl card">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-700">Spending Breakdown (Last 30 Days)</h2>
+                <div class="h-64">
+                    <canvas id="spendingChart"></canvas>
+                </div>
+            </div>
+
+            <!-- AI Suggestions Panel -->
+            <div class="bg-yellow-50 p-6 rounded-xl card border-l-4 border-yellow-500">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-800 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    AI-Driven Cost Alternatives
+                </h2>
+                <button onclick="requestAISuggestion()" id="ai-button" class="py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 mb-4">
+                    Get Suggestions for Top Category
+                </button>
+                <div id="ai-suggestions" class="text-gray-700 space-y-3">
+                    <p class="text-sm italic">Click the button above to analyze your highest spending category and receive grounded, cost-saving alternatives.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, collection, query, orderBy, onSnapshot, setDoc, addDoc, getDocs, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    
+    // Global Firebase vars (initialized later)
+    let app, db, auth;
+    let userId = null;
+    let transactions = [];
+    let myChartInstance = null;
+    let topCategory = null;
+
+    // --- 1. FIREBASE INITIALIZATION AND AUTHENTICATION ---
+    
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    setLogLevel('debug'); // Enable detailed Firestore logging
+
+    // Utility function to display messages
+    function displayMessage(text, isError = false) {
+        const msgBox = document.getElementById('message-box');
+        msgBox.textContent = text;
+        msgBox.classList.remove('hidden', 'bg-red-200', 'text-red-800', 'bg-green-200', 'text-green-800');
+        msgBox.classList.add(isError ? 'bg-red-200' : 'bg-green-200', isError ? 'text-red-800' : 'text-green-800');
+        setTimeout(() => msgBox.classList.add('hidden'), 5000);
+    }
+
+    // Initialize Firebase
+    if (Object.keys(firebaseConfig).length > 0) {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+            } else {
+                // Sign in anonymously if no token is provided
+                try {
+                    await (initialAuthToken 
+                        ? signInWithCustomToken(auth, initialAuthToken) 
+                        : signInAnonymously(auth));
+                    userId = auth.currentUser?.uid || crypto.randomUUID();
+                } catch (error) {
+                    console.error("Auth error:", error);
+                    displayMessage(`Authentication failed: ${error.message}`, true);
+                    userId = 'Anonymous (Error)';
+                }
+            }
+            document.getElementById('user-id').textContent = userId;
+            if (userId) {
+                setupRealtimeListener();
+            }
+        });
+    } else {
+        console.error("Firebase configuration is missing.");
+        document.getElementById('user-id').textContent = 'Config Error';
+    }
+    
+    // --- 2. DATA PERSISTENCE (FIRESTORE) ---
+
+    // Get the collection reference (Private data: /artifacts/{appId}/users/{userId}/{collectionName})
+    function getTransactionsCollectionRef() {
+        if (!db || !userId) return null;
+        // NOTE: Firestore requires the full path be created explicitly
+        const userDocRef = doc(db, 'artifacts', appId, 'users', userId);
+        return collection(userDocRef, 'transactions');
+    }
+
+    // Real-time listener for transactions
+    function setupRealtimeListener() {
+        const ref = getTransactionsCollectionRef();
+        if (!ref) return;
+
+        // Fetch all documents and sort in memory (to avoid orderBy index issues)
+        // Note: For large datasets, this must be optimized with proper Firestore indexing/pagination.
+        const q = query(ref); 
+
+        onSnapshot(q, (snapshot) => {
+            transactions = [];
+            snapshot.forEach((doc) => {
+                transactions.push({ id: doc.id, ...doc.data() });
+            });
+            // Sort in memory by date descending (assuming 'timestamp' exists)
+            transactions.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+
+            // Process and render data
+            calculateAnalytics();
+            renderCharts();
+        }, (error) => {
+            console.error("Error setting up snapshot listener:", error);
+            displayMessage(`Data loading error: ${error.message}`, true);
+        });
+    }
+
+    // Function to add a new transaction
+    document.getElementById('expense-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const ref = getTransactionsCollectionRef();
+        if (!ref) { displayMessage("Database not ready.", true); return; }
+
+        const amount = parseFloat(document.getElementById('amount').value);
+        const category = document.getElementById('category').value;
+        const description = document.getElementById('description').value.trim();
+
+        if (isNaN(amount) || amount <= 0 || !category || !description) {
+            displayMessage("Please fill all fields correctly.", true);
+            return;
+        }
+
+        try {
+            await addDoc(ref, {
+                amount: amount,
+                category: category,
+                description: description,
+                timestamp: serverTimestamp(),
+            });
+            displayMessage("Transaction added successfully!");
+            e.target.reset(); // Clear form
+        } catch (e) {
+            console.error("Error adding document: ", e);
+            displayMessage(`Error saving transaction: ${e.message}`, true);
+        }
+    });
+
+    // --- 3. ANALYTICS & VISUALIZATION (CHART.JS) ---
+
+    function calculateAnalytics() {
+        let totalSpending = 0;
+        const categoryMap = {};
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+
+        // Filter for last 30 days and calculate totals
+        transactions.forEach(t => {
+            const time = t.timestamp?.toDate ? t.timestamp.toDate().getTime() : Date.now();
+            if (time > thirtyDaysAgo) {
+                const amount = t.amount || 0;
+                totalSpending += amount;
+                categoryMap[t.category] = (categoryMap[t.category] || 0) + amount;
+            }
+        });
+
+        // Update Summary Card
+        document.getElementById('total-spending').textContent = `₹ ${totalSpending.toFixed(2)}`;
+
+        // Determine the top spending category
+        let maxSpend = 0;
+        topCategory = null;
+        for (const cat in categoryMap) {
+            if (categoryMap[cat] > maxSpend) {
+                maxSpend = categoryMap[cat];
+                topCategory = cat;
+            }
+        }
+        
+        // Save the category map for chart rendering
+        analyticsData = { totalSpending, categoryMap };
+    }
+    
+    function renderCharts() {
+        const data = analyticsData.categoryMap;
+        const labels = Object.keys(data);
+        const amounts = Object.values(data);
+        
+        const ctx = document.getElementById('spendingChart').getContext('2d');
+
+        // Destroy old chart instance if it exists
+        if (myChartInstance) {
+            myChartInstance.destroy();
+        }
+
+        // Generate colors for consistency
+        const getColors = (count) => {
+            const colors = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#6366f1', '#a855f7', '#ec4899'];
+            return amounts.map((_, i) => colors[i % colors.length]);
+        };
+        const backgroundColors = getColors(labels.length);
+
+        myChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: amounts,
+                    backgroundColor: backgroundColors,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 20
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Spending by Category',
+                        font: { size: 16 }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- 4. AI SUGGESTION LOGIC (GEMINI API) ---
+    
+    window.requestAISuggestion = async function() {
+        if (!topCategory) {
+            document.getElementById('ai-suggestions').innerHTML = `<p class="text-red-600">No transactions recorded yet to analyze!</p>`;
+            return;
+        }
+
+        const button = document.getElementById('ai-button');
+        const suggestionsDiv = document.getElementById('ai-suggestions');
+        
+        button.disabled = true;
+        suggestionsDiv.innerHTML = `<p class="text-yellow-600 flex items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Analyzing spending in '${topCategory}'...
+        </p>`;
+
+        const userQuery = `I recently spent a lot in the category: "${topCategory}". Suggest three specific, actionable, and inexpensive web-based alternatives or products to reduce this expense in Chennai, India. Focus on services similar to Amazon or Perplexity to find better deals or information.`;
+        
+        // Define the API call payload
+        const apiKey = ""; // Canvas will provide this during runtime
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            // Enable Google Search grounding to find real, current alternatives
+            tools: [{ "google_search": {} }],
+            systemInstruction: {
+                parts: [{ text: "You are a professional financial advisor. Provide concise, numbered, cost-saving suggestions tailored to the specified category and location. Include sources for your suggestions." }]
+            },
+        };
+
+        try {
+            const response = await fetchWithRetry(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                let text = candidate.content.parts[0].text;
+                let sources = [];
+
+                // Extract grounding sources
+                const groundingMetadata = candidate.groundingMetadata;
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title);
+                }
+
+                // Append sources to the text
+                if (sources.length > 0) {
+                    text += '\n\n**Sources for suggestions:**\n';
+                    sources.forEach((s, i) => {
+                        text += `* [${s.title || 'Source ' + (i + 1)}](${s.uri})\n`;
+                    });
+                }
+                
+                // Display the results
+                suggestionsDiv.innerHTML = `<h4 class="font-semibold text-gray-800">Top Savings Strategies for ${topCategory}:</h4>`;
+                suggestionsDiv.innerHTML += formatMarkdownToHtml(text);
+                
+                // Placeholder for savings calculation: Assume 5% average saving on top category
+                const topCategorySpend = analyticsData.categoryMap[topCategory] || 0;
+                const potentialSaving = topCategorySpend * 0.05; // 5% saving rule
+                document.getElementById('total-savings').textContent = `₹ ${potentialSaving.toFixed(2)}`;
+
+            } else {
+                suggestionsDiv.innerHTML = `<p class="text-red-600">AI suggestion failed. Try again later.</p>`;
+            }
+        } catch (error) {
+            console.error('Gemini API Error:', error);
+            suggestionsDiv.innerHTML = `<p class="text-red-600">Could not connect to AI service. Check console for details.</p>`;
+        } finally {
+            button.disabled = false;
+        }
+    }
+    
+    // Simple markdown to HTML conversion for displaying LLM output
+    function formatMarkdownToHtml(markdown) {
+        let html = markdown;
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
+        html = html.replace(/\*(.*?)\*/g, '<li>$1</li>'); // Lists
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-500 hover:underline">$1</a>'); // Links
+        // Basic line breaks
+        html = html.replace(/\n\n/g, '<p class="mt-2"></p>');
+        html = html.replace(/\n/g, '<br>');
+        return `<div class="text-sm">${html}</div>`;
+    }
+
+    // --- 5. EXPONENTIAL BACKOFF RETRY UTILITY ---
+    async function fetchWithRetry(url, options, maxRetries = 5) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const response = await fetch(url, options);
+                if (response.status !== 429) { // Not a Rate Limit error
+                    return response;
+                }
+                // Rate limit detected, log and proceed to wait
+            } catch (error) {
+                // Network or other transient error, proceed to wait
+            }
+            const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        throw new Error('Fetch failed after maximum retries.');
+    }
+
+    // Export function to window for button access
+    window.onload = function() {
+        if (!window.requestAISuggestion) {
+             window.requestAISuggestion = requestAISuggestion;
+        }
+    };
+</script>
+
+</body>
+</html>
